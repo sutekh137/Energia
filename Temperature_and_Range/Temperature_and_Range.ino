@@ -1,3 +1,5 @@
+#include <DHT22_430.h>
+
 // Includes
 #include <LiquidCrystal.h>
 
@@ -7,6 +9,7 @@
 // was off. Calibrated against a very accurate food thermometer and another digital
 // thermometer. (Even when I used the exact voltage measured at the tempersture
 // sensor as the reference voltage, temperature read too low.)
+#define DHT22_INPUT  15
 #define EXTERNAL_REF_VOLTAGE  3.35
 #define INTERNAL_REF_VOLTAGE  2.06
 #define EXTERNAL_TEMP_SENSOR  A5
@@ -15,17 +18,20 @@
 #define ECHO  19
 #define MS_BETWEEN_READINGS  2000
 #define PIN_CHANGE_MODE  14
-#define DEFAULT_MODE  1
+#define MIN_MODE  1
+#define MAX_MODE  3
 
 // Global variables
-LiquidCrystal lcd(8, 9, 10, 11, 12, 13);
+LiquidCrystal Display(8, 9, 10, 11, 12, 13);
+DHT22 THSensor(DHT22_INPUT);
 float gnTempF, gnTempC;
 boolean glModeChanged;
-byte gnMode = 0;  // [0=Intro], 1=Full Temp > 2=Full Range > 3=Both > 1=Full Temp...
+byte gnMode = 0;  // [0=Intro], 1=Full Temp > 2=Full Range > 3=TR > 4=Temp/RH > 1=Full Temp...
 
 void setup() {
   // Define the number of columns and rows of the LCD.
-  lcd.begin(16, 2);
+  Display.begin(16, 2);
+  THSensor.begin();
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
   // Use button on an interrupt to change mode.
@@ -35,20 +41,20 @@ void setup() {
   analogRead(TEMPSENSOR);
   glModeChanged = false;
   ResetLCDLine(0);
-  lcd.print("*PRESS TO START*");
+  Display.print("*PRESS TO START*");
   while (gnMode == 0) {
     if (gnMode == 0) {
       ResetLCDLine(1);
-      lcd.print("Temp> Dist> Both");
+      Display.print("  T> D> TD> TH  ");
       delay(750);
     }
     if (gnMode == 0) {
       ResetLCDLine(1);
-      lcd.print("Temp >Dist >Both");
+      Display.print("  T >D >TD >TH  ");
       delay(750);
     }  
   }
-  gnMode = DEFAULT_MODE;
+  gnMode = MIN_MODE;
 }
 
 void ISR_ChangeMode() {
@@ -57,14 +63,14 @@ void ISR_ChangeMode() {
     return;
   }
   gnMode++;
-  if (gnMode > 3) {gnMode = 1;}
+  if (gnMode > MAX_MODE) {gnMode = 1;}
   glModeChanged = true;
 }
 
 void ResetLCDLine(byte pnLineIndex) {
-  lcd.setCursor(0, pnLineIndex);
-  lcd.print("                ");
-  lcd.setCursor(0, pnLineIndex);
+  Display.setCursor(0, pnLineIndex);
+  Display.print("                ");
+  Display.setCursor(0, pnLineIndex);
 }
 
 float GetTempC(byte pnReadFrom, float pnRefVoltage) {
@@ -85,17 +91,17 @@ float GetDistanceInches() {
 
 void DisplayTempOutputLine(byte pnDisplayLine, char* pcIntro) {
   ResetLCDLine(pnDisplayLine);
-  lcd.print(pcIntro);
-  lcd.print(gnTempF, 1);
+  Display.print(pcIntro);
+  Display.print(gnTempF, 1);
   if (gnTempF >= 0.00) {
-    lcd.print(DEGREE_SYMBOL);
+    Display.print(DEGREE_SYMBOL);
   }
-  lcd.print("F ");
-  lcd.print(gnTempC, 1);
+  Display.print("F ");
+  Display.print(gnTempC, 1);
   if (gnTempC >= 0.00) {
-    lcd.print(DEGREE_SYMBOL);
+    Display.print(DEGREE_SYMBOL);
   }
-  lcd.print("C");
+  Display.print("C");
   return;
 }
 
@@ -115,20 +121,20 @@ void FullRangeInfo() {
   float lnDistanceInches;
   lnDistanceInches = GetDistanceInches();
   ResetLCDLine(0);
-  lcd.print("D: ");
-  lcd.print(lnDistanceInches, 2);
-  lcd.print((char)34);
-  lcd.print(" ");
+  Display.print("D: ");
+  Display.print(lnDistanceInches, 2);
+  Display.print((char)34);
+  Display.print(" ");
   if (lnDistanceInches * 2.54 > 100) {lnDecFormat = 0;}
-  lcd.print(lnDistanceInches * 2.54, lnDecFormat);
-  lcd.print("cm ");
+  Display.print(lnDistanceInches * 2.54, lnDecFormat);
+  Display.print("cm ");
   ResetLCDLine(1);
-  lcd.print("   ");
-  lcd.print(lnDistanceInches/12, 2);
-  lcd.print((char)39);
-  lcd.print(" ");
-  lcd.print(lnDistanceInches * 0.0254, 3);
-  lcd.print("m ");
+  Display.print("   ");
+  Display.print(lnDistanceInches/12, 2);
+  Display.print((char)39);
+  Display.print(" ");
+  Display.print(lnDistanceInches * 0.0254, 3);
+  Display.print("m ");
 }
 
 void BothInfo() {
@@ -141,13 +147,32 @@ void BothInfo() {
   float lnDistanceInches;
   lnDistanceInches = GetDistanceInches();
   ResetLCDLine(1);
-  lcd.print("D: ");
-  lcd.print(lnDistanceInches, 2);
-  lcd.print((char)34);
-  lcd.print(" ");
+  Display.print("D: ");
+  Display.print(lnDistanceInches, 2);
+  Display.print((char)34);
+  Display.print(" ");
   if (lnDistanceInches * 2.54 > 100) {lnDecFormat = 0;}
-  lcd.print(lnDistanceInches * 2.54, lnDecFormat);
-  lcd.print("cm ");
+  Display.print(lnDistanceInches * 2.54, lnDecFormat);
+  Display.print("cm ");
+}
+
+void TempRH() {
+  boolean llSuccess = THSensor.get();
+  if (llSuccess) {
+    // Sensor reading was sucessful. We can check object properties then display.
+    float lnHumidity = THSensor.humidityX10()/10.0;
+    // Display tempeature.
+    gnTempC = THSensor.temperatureX10()/10.0;
+    gnTempF = (gnTempC * 9/5) + 32;
+    DisplayTempOutputLine(0, "T: ");
+    // Display Relative Humidity.
+    ResetLCDLine(1);
+    Display.print("RH: ");
+    Display.print(lnHumidity, 1);
+    Display.print(" %");
+  } 
+  else {
+  }
 }
 
 void loop() {
@@ -160,6 +185,9 @@ void loop() {
       break;
     case 3:
       BothInfo();
+      break;
+    case 4:
+      TempRH();
       break;
   }
   unsigned long lnElapsed = 0;
