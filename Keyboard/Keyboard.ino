@@ -95,9 +95,9 @@ void loop() {
     // will be in place to wake things up.
     // 1.  Get ready for sleep. Make sure all interrupts are attached so that playing a note
     // immediately wakes up the MCU. We also have to attach the "special key", as those keys
-    // are also just notes. If we don't re-attach then after cycling in and out of LPM, the 
+    // are also just notes. If we don't re-attach them after cycling in and out of LPM, the 
     // special key combinations will not work. (Apparently attachInterrupt() is smart enough 
-    // to replace the interrups as first established by the for loop).
+    // to replace the interrups as first established by the "for" loop).
     for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
       attachInterrupt(i, ISR_ButtonPressed, FALLING);
     }
@@ -116,11 +116,14 @@ void loop() {
   }
 }
 
+// 04/05/2013 - Tried using noInterrupts() and interrupts() instead of a Lock/Unlock scheme,
+// but it didn't seem to work. Any button attached to an interrupt would cause the MCU to
+// reset. I have no idea why and don't care -- this works, and only adds a few dozen bytes
+// to the flashed code size (and is still well within the 8K limit of the 2452 chip).
 void LockInt() {
   glISRFree = false;
   delayMicroseconds(100);
 }
-
 void UnlockInt() {
   glISRFree = true;
   delayMicroseconds(100);
