@@ -117,38 +117,38 @@ boolean DHT22::get() {
   
   interrupts();
   
-#if defined(DEBUG)
-  Serial.println();
-  
-  Serial.print("debug \t");
-  Serial.print("bits received \t");
-  Serial.println(j, DEC);
-  
-  Serial.print("debug \t");
-  Serial.print(data[0], HEX); 
-  Serial.print(", ");
-  Serial.print(data[1], HEX); 
-  Serial.print(", ");
-  Serial.print(data[2], HEX); 
-  Serial.print(", ");
-  Serial.print(data[3], HEX); 
-  Serial.print(", ");
-  Serial.print(data[4], HEX); 
-  Serial.print(" =? ");
-  Serial.println(data[0] + data[1] + data[2] + data[3] & 0xff, HEX);
-  
-  Serial.print("debug \t");
-  Serial.print(" checksum \t");
-  Serial.println( (data[4] == (data[0] + data[1] + data[2] + data[3]) & 0xFF) ? "ok" : "NO" );
-  
-  Serial.print("debug \t");
-  Serial.print("RH% \t");
-  Serial.println(data[0]*256 + data[1], DEC);
-  
-  Serial.print("debug \t");
-  Serial.print("oC \t");
-  Serial.println(data[2]*256 + data[3], DEC);
-#endif
+//#if defined(DEBUG)
+//  Serial.println();
+//  
+//  Serial.print("debug \t");
+//  Serial.print("bits received \t");
+//  Serial.println(j, DEC);
+//  
+//  Serial.print("debug \t");
+//  Serial.print(data[0], HEX); 
+//  Serial.print(", ");
+//  Serial.print(data[1], HEX); 
+//  Serial.print(", ");
+//  Serial.print(data[2], HEX); 
+//  Serial.print(", ");
+//  Serial.print(data[3], HEX); 
+//  Serial.print(", ");
+//  Serial.print(data[4], HEX); 
+//  Serial.print(" =? ");
+//  Serial.println(data[0] + data[1] + data[2] + data[3] & 0xff, HEX);
+//  
+//  Serial.print("debug \t");
+//  Serial.print(" checksum \t");
+//  Serial.println( (data[4] == (data[0] + data[1] + data[2] + data[3]) & 0xFF) ? "ok" : "NO" );
+//  
+//  Serial.print("debug \t");
+//  Serial.print("RH% \t");
+//  Serial.println(data[0]*256 + data[1], DEC);
+//  
+//  Serial.print("debug \t");
+//  Serial.print("oC \t");
+//  Serial.println(data[2]*256 + data[3], DEC);
+//#endif
   
   // check we read 40 bits and that the checksum matches
   if ((j >= 40) && (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xff)) ) {
@@ -167,7 +167,3 @@ boolean DHT22::get() {
   
   return _lastResult;
 }
-
-
-
-

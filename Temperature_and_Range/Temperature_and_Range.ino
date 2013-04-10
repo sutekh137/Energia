@@ -158,15 +158,12 @@ void BothInfo() {
 }
 
 void TempRH() {
-  //boolean llSuccess = THSensor.get();
-  boolean llSuccess= true;
+  boolean llSuccess = THSensor.get();
   if (llSuccess) {
     // Sensor reading was sucessful. We can check object properties then display.
-    float lnHumidity = 80.0;
-    //float lnHumidity = THSensor.humidityX10()/10.0;
+    float lnHumidity = THSensor.humidityX10()/10.0;
     // Display tempeature.
-    gnTempC = 30.0;
-    //gnTempC = THSensor.temperatureX10()/10.0;
+    gnTempC = THSensor.temperatureX10()/10.0;
     gnTempF = (gnTempC * 9/5) + 32;
     DisplayTempOutputLine(0, "T: ");
     // Display Relative Humidity.
