@@ -18,6 +18,11 @@ void setup() {
   // Define the number of columns and rows of the LCD.
   Display.begin(16, 2);
   THSensor.begin();
+  // Kick things off with a shorter, known pause so that the display 
+  // fires up as soon as possible. Readings take a while, so don't make the
+  // delay after this initial reading too short...
+  TempRH();
+  delay(2000);
 }
 
 void loop() {
