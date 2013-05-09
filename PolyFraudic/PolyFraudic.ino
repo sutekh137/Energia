@@ -60,6 +60,7 @@ void setup() {
   delay(1000);
   noTone(AUDIO_OUT);
   SetRange(START_RANGE);
+  return;
 }
 
 void loop() {
@@ -80,16 +81,25 @@ void loop() {
   // Because of the way we have set up the note pins, we can simply go incrementally from
   // first to last and play whatever first note we find as LOW (pressed). The PlayNote()
   // subroutine loops until key is released.
-  byte lnButton = 0;
+  byte lnButton1 = 0;
+  byte lnButton2 = 0;
   for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
     if (digitalRead(i) == LOW) {
-      // Save what button is pressed. Testing shows it doesn't really matter if we force an
-      // exit or not...we can scan all keys if we want and it doesn't affect performance.
-      lnButton = i;
+      if (lnButton1 == 0) {
+        lnButton1 = i;
+      } else {
+        lnButton2 = i;
+      }
     }
   }
-  // See if we have a note to play, and play it if we do.
-  if (lnButton > 0) {PlayNote(lnButton);}
+  if (lnButton2 > 0) {
+    Play2Notes(lnButton1, lnButton2);
+    return;
+  }
+  if (lnButton1 > 0) {
+    PlayNote(lnButton1);
+    return;
+  }
   // We have made it here because no buttons are pressed or the last-pressed button was
   // just released. We can now check to see if we want to drop into low power mode.
   if (USE_LOW_POWER && (gnLoopsElapsed > LOOPS_TO_IDLE)) {
@@ -118,6 +128,7 @@ void loop() {
     }
     gnLoopsElapsed = 0;
   }
+  return;
 }
 
 // 04/05/2013 - Tried using noInterrupts() and interrupts() instead of a Lock/Unlock scheme,
@@ -127,15 +138,18 @@ void loop() {
 void LockInt() {
   glISRFree = false;
   delayMicroseconds(100);
+  return;
 }
 void UnlockInt() {
   glISRFree = true;
   delayMicroseconds(100);
+  return;
 }
 
 void ISR_ButtonPressed() {
   // Just here to wake up from low power mode (if even attached).
   // It does not appear that any live code needs to occur.
+  return;
 }
 
 void ISR_Special1() {
@@ -190,22 +204,62 @@ void ISR_ChangeRangeDown() {
   return;
 }
 
-void PlayNote(byte pnButton) {
-  if (digitalRead(pnButton) == LOW) {
-    byte lnNoteIndex = pnButton - 2;    // Buttons start at 2, note array is zero-indexed.
-    tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
+void Play2Notes(byte pnButton1, byte pnButton2) {
+  if (digitalRead(pnButton1) == LOW && digitalRead(pnButton2) == LOW) {
+    byte lnNoteIndex1 = pnButton1 - 2;    // Buttons start at 2, note array is zero-indexed.
+    byte lnNoteIndex2 = pnButton2 - 2;    // Buttons start at 2, note array is zero-indexed.
     while (true) {
-      if (digitalRead(pnButton) == HIGH) {
+      // Move tones inside the infinite loop (until done), alternating them to create
+      // a fraudulent polyphonia.
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex1]);
+      delay(5);
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex2], 10);
+      if (digitalRead(pnButton1) == HIGH || digitalRead(pnButton2) == HIGH) {
         noTone(AUDIO_OUT);
         return;
       } else {
         if (glReplay) {
-          tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
           glReplay = false;
+          Play2Notes(pnButton1, pnButton2);
+        }
+      }
+      delay(5);
+    }
+  }
+  glReplay = false;
+  return;
+}
+
+void PlayNote(byte pnButton) {
+  if (digitalRead(pnButton) == LOW) {
+    byte lnNoteIndex = pnButton - 2;    // Buttons start at 2, note array is zero-indexed.
+    // Generate tone once, outside of the loop, otherwise it will have stutters in it as
+    // the loop cycles through its frequency.
+    tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
+    while (true) {
+      // If the note being played is no longer pressed OR a different button is being pressed,
+      // we should stop the tone and let the loop() decide how to proceed.
+      boolean llPressChange = false;
+      for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
+        if (i != pnButton && digitalRead(i) == LOW) {
+          llPressChange = true;
+          i == NOTE_END_PIN + 1;
+        }
+      }
+      if (digitalRead(pnButton) == HIGH || llPressChange) {
+        noTone(AUDIO_OUT);
+        return;
+      } else {
+        if (glReplay) {
+          glReplay = false;
+          //tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
+          PlayNote(pnButton);
         }
       }
     }
   }
+  glReplay = false;
+  return;
 }
 
 boolean SpecialState() {
@@ -324,6 +378,7 @@ void SetRange(byte pnRange) {
       gaNotes[12] = NOTE_C8;
       break;
   }
+  return;
 }
 
 void PlayTestTones() {
@@ -340,6 +395,7 @@ void PlayTestTones() {
   tone(AUDIO_OUT, gaNotes[TONES_IN_RANGE - 1], 2000);
   delay(1000);
   SetRange(lnCurrRange);
+  return;
 }
 
 void PlayQuadrophenia() {
@@ -364,4 +420,5 @@ void PlayQuadrophenia() {
     delay(200);
   }
   noTone(AUDIO_OUT);
+  return;
 }
