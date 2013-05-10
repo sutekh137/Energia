@@ -13,6 +13,7 @@
 #define SPECIAL_BASE_2  5
 #define SPECIAL_TRIGGER_1  NOTE_END_PIN
 #define SPECIAL_TRIGGER_2  NOTE_END_PIN - 1
+#define FRAUD_GAP_MS  12    // Two-thirds of this should be a whole number.
 
 #define USE_LOW_POWER  true
 
@@ -79,18 +80,27 @@ void loop() {
     return;
   }
   // Because of the way we have set up the note pins, we can simply go incrementally from
-  // first to last and play whatever first note we find as LOW (pressed). The PlayNote()
-  // subroutine loops until key is released.
+  // first to last and play whatever first note we find as LOW (pressed). The right PlayNote()
+  // subroutine loops until key is released. Testing shows it doesn't really matter if we force an
+  // exit or not when we know we have maximum polyphonia...we can scan all keys if we want
+  // and it doesn't affect performance.
   byte lnButton1 = 0;
   byte lnButton2 = 0;
+  byte lnButton3 = 0;
   for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
     if (digitalRead(i) == LOW) {
       if (lnButton1 == 0) {
         lnButton1 = i;
-      } else {
+      } else if (lnButton2 == 0) {
         lnButton2 = i;
+      } else if (lnButton3 == 0) {
+        lnButton3 = i;
       }
     }
+  }
+  if (lnButton3 > 0) {
+    Play3Notes(lnButton1, lnButton2, lnButton3);
+    return;
   }
   if (lnButton2 > 0) {
     Play2Notes(lnButton1, lnButton2);
@@ -204,26 +214,65 @@ void ISR_ChangeRangeDown() {
   return;
 }
 
+void Play3Notes(byte pnButton1, byte pnButton2, byte pnButton3) {
+  if (digitalRead(pnButton1) == LOW && digitalRead(pnButton2) == LOW && digitalRead(pnButton3) == LOW) {
+    byte lnNoteIndex1 = pnButton1 - 2;    // Buttons start at 2, note array is zero-indexed.
+    byte lnNoteIndex2 = pnButton2 - 2;    // Buttons start at 2, note array is zero-indexed.
+    byte lnNoteIndex3 = pnButton3 - 3;    // Buttons start at 2, note array is zero-indexed.
+    while (true) {
+      // Move tones inside the infinite loop (until done), alternating them
+      // to create a fraudulent polyphonia.
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex1]);
+      delay(FRAUD_GAP_MS * 2 / 3);
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex2]);
+      delay(FRAUD_GAP_MS * 2 / 3);
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex3]);
+      delay(FRAUD_GAP_MS * 2 / 3);
+      // If a different button (from the ones being played here) is being pressed,
+      // we should stop the tone and let the loop() decide how to proceed.
+      boolean llPressChange = false;
+      for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
+        if (i != pnButton1 && i != pnButton2 && i != pnButton3 && digitalRead(i) == LOW) {
+          llPressChange = true;
+          i == NOTE_END_PIN + 1;
+        }
+      }
+      if (llPressChange || digitalRead(pnButton1) == HIGH || digitalRead(pnButton2) == HIGH || digitalRead(pnButton3) == HIGH) {
+        // Our notes are no longer all being pressed, so let loop() take over again.
+        noTone(AUDIO_OUT);
+        return;
+      }
+    }
+  }
+  glReplay = false;
+  return;
+}
+
 void Play2Notes(byte pnButton1, byte pnButton2) {
   if (digitalRead(pnButton1) == LOW && digitalRead(pnButton2) == LOW) {
     byte lnNoteIndex1 = pnButton1 - 2;    // Buttons start at 2, note array is zero-indexed.
     byte lnNoteIndex2 = pnButton2 - 2;    // Buttons start at 2, note array is zero-indexed.
     while (true) {
-      // Move tones inside the infinite loop (until done), alternating them to create
-      // a fraudulent polyphonia.
+      // Move tones inside the infinite loop (until done), alternating them
+      // to create a fraudulent polyphonia.
       tone(AUDIO_OUT, gaNotes[lnNoteIndex1]);
-      delay(5);
-      tone(AUDIO_OUT, gaNotes[lnNoteIndex2], 10);
-      if (digitalRead(pnButton1) == HIGH || digitalRead(pnButton2) == HIGH) {
-        noTone(AUDIO_OUT);
-        return;
-      } else {
-        if (glReplay) {
-          glReplay = false;
-          Play2Notes(pnButton1, pnButton2);
+      delay(FRAUD_GAP_MS);
+      tone(AUDIO_OUT, gaNotes[lnNoteIndex2]);
+      delay(FRAUD_GAP_MS);
+      // If a different button (from the ones being played here) is being pressed,
+      // we should stop the tone and let the loop() decide how to proceed.
+      boolean llPressChange = false;
+      for (byte i = NOTE_START_PIN; i <= NOTE_END_PIN; i++) {
+        if (i != pnButton1 && i != pnButton2 && digitalRead(i) == LOW) {
+          llPressChange = true;
+          i == NOTE_END_PIN + 1;
         }
       }
-      delay(5);
+      if (llPressChange || digitalRead(pnButton1) == HIGH || digitalRead(pnButton2) == HIGH) {
+        // Our notes are no longer both being pressed, so let loop() take over again.
+        noTone(AUDIO_OUT);
+        return;
+      }
     }
   }
   glReplay = false;
@@ -246,14 +295,15 @@ void PlayNote(byte pnButton) {
           i == NOTE_END_PIN + 1;
         }
       }
-      if (digitalRead(pnButton) == HIGH || llPressChange) {
+      if (llPressChange || digitalRead(pnButton) == HIGH) {
         noTone(AUDIO_OUT);
         return;
       } else {
+        // In the single note scenario, we ned to trigger a replay, otherwise changing the
+        // octave range does not dynamically change the note being played.
         if (glReplay) {
           glReplay = false;
-          //tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
-          PlayNote(pnButton);
+          tone(AUDIO_OUT, gaNotes[lnNoteIndex]);
         }
       }
     }
