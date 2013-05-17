@@ -15,13 +15,13 @@
 const uint8_t  _commandLCD = 0x00;     
 const uint8_t  _dataLCD    = 0x01;          
 
-uint8_t _pinReset;
-uint8_t _pinSerialData;
-uint8_t _pinBacklight;
-uint8_t _pinChipSelect;
-uint8_t _pinDataCommand;
-uint8_t _pinSerialClock;
-uint8_t _pinPushButton;
+uint8_t _pinReset = 0;
+uint8_t _pinSerialData = 0;
+uint8_t _pinBacklight = 0;
+uint8_t _pinChipSelect = 0;
+uint8_t _pinDataCommand = 0;
+uint8_t _pinSerialClock = 0;
+uint8_t _pinPushButton = 0;
 
 
 #if defined(__MSP430G2553__) // LaunchPad MSP430G2553 specific
@@ -68,6 +68,16 @@ LCD_5110::LCD_5110(uint8_t pinChipSelect, uint8_t pinSerialClock, uint8_t pinSer
   _pinPushButton  = pinPushButton;
 }
 
+LCD_5110::LCD_5110(uint8_t pinChipSelect, uint8_t pinSerialClock, uint8_t pinSerialData, uint8_t pinDataCommand, uint8_t pinReset, uint8_t pinBacklight) {
+  _pinChipSelect  = pinChipSelect;
+  _pinSerialClock = pinSerialClock;
+  _pinSerialData  = pinSerialData;
+  _pinDataCommand = pinDataCommand;
+  _pinReset       = pinReset;
+  _pinBacklight   = pinBacklight;
+  _pinPushButton  = 0;
+}
+
 void LCD_5110::write(uint8_t dataCommand, uint8_t c) {
   digitalWrite(_pinDataCommand, dataCommand);
   digitalWrite(_pinChipSelect, LOW);
@@ -82,25 +92,47 @@ void LCD_5110::setXY(uint8_t x, uint8_t y) {
 
 void LCD_5110::begin() {
   pinMode(_pinChipSelect, OUTPUT);
-  pinMode(_pinReset, OUTPUT);
   pinMode(_pinDataCommand, OUTPUT);
   pinMode(_pinSerialData, OUTPUT);
   pinMode(_pinSerialClock, OUTPUT);
   pinMode(_pinBacklight, OUTPUT);
-  pinMode(_pinPushButton, INPUT_PULLUP);
+  if (_pinPushButton > 0) {
+    pinMode(_pinPushButton, INPUT_PULLUP);
+  }
+
+  digitalWrite(_pinDataCommand, LOW);
+  //delay(30);
   
-  digitalWrite(_pinDataCommand, LOW);			
-  delay(30);
-  digitalWrite(_pinReset, LOW);	
-  delay(100); // as per 8.1 Initialisation
-  digitalWrite(_pinReset, HIGH);
-  
+  // Some folks might use a hardware RST initializer. e.g. a resistor/capacitor filter.
+  if (_pinReset > 0) {
+    pinMode(_pinReset, OUTPUT);
+    //delay(10);
+    digitalWrite(_pinReset, LOW);
+    delay(20);
+    //delay(100); // as per 8.1 Initialisation
+    //delay(500); // as per Arduino lib.
+    digitalWrite(_pinReset, HIGH);
+  }
+
+  // Original init write commands.
   write(_commandLCD, 0x21); // chip is active, horizontal addressing, use extended instruction set
-  write(_commandLCD, 0xc8); // write VOP to register: 0xC8 for 3V — try other values
+  // JLK: 0xBE seems to work good for a steady 3.3-3.4V source (background of active area is
+  // indiscernible from border at ~70 degrees F). The higher the number, the darker the background.
+  write(_commandLCD, 0xC0); // write VOP to register: 0xC8 for 3V — try other values 
+  // The next command also affects contrast.
   write(_commandLCD, 0x12); // set Bias System 1:48
   write(_commandLCD, 0x20); // chip is active, horizontal addressing, use basic instruction set
   write(_commandLCD, 0x09); // temperature control
   write(_commandLCD, 0x0c); // normal mode
+
+  // Init commands according to a Sparkfun thread on the 5110.
+  //write(_commandLCD, 0x21); // chip is active, horizontal addressing, use extended instruction set
+  //write(_commandLCD, 0xE0); // write VOP to register: 0xC8 for 3V — try other values
+  //write(_commandLCD, 0x14); // set Bias System 1:48
+  //write(_commandLCD, 0x20); // chip is active, horizontal addressing, use basic instruction set
+  //write(_commandLCD, 0x09); // temperature control
+  //write(_commandLCD, 0x0C); // normal mode
+
   delay(10);
   
   clear();
@@ -153,9 +185,13 @@ void LCD_5110::text(uint8_t x, uint8_t y, String s) {
 }
 
 boolean LCD_5110::getButton() {
-  if (digitalRead(_pinPushButton)==LOW) {
-    while (digitalRead(_pinPushButton)==LOW); // debounce
-    return true;
+  if (_pinPushButton > 0) {
+    if (digitalRead(_pinPushButton)==LOW) {
+      while (digitalRead(_pinPushButton)==LOW); // debounce
+      return true;
+    } else {
+      return false;
+    }
   } else {
     return false;
   }
