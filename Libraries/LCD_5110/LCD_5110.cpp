@@ -118,7 +118,7 @@ void LCD_5110::begin() {
   write(_commandLCD, 0x21); // chip is active, horizontal addressing, use extended instruction set
   // JLK: 0xBE seems to work good for a steady 3.3-3.4V source (background of active area is
   // indiscernible from border at ~70 degrees F). The higher the number, the darker the background.
-  write(_commandLCD, 0xC0); // write VOP to register: 0xC8 for 3V — try other values 
+  write(_commandLCD, 0xC5); // write VOP to register: 0xC8 for 3V — try other values 
   // The next command also affects contrast.
   write(_commandLCD, 0x12); // set Bias System 1:48
   write(_commandLCD, 0x20); // chip is active, horizontal addressing, use basic instruction set
